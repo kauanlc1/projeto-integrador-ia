@@ -1,9 +1,18 @@
+import os
+import openai
+
 from flask import Flask
+from routes import api_routes
+from dotenv import load_dotenv
+
+load_dotenv()
+
 app = Flask(__name__)
+# Registrando as rotas
+app.register_blueprint(api_routes)
 
-@app.route('/')
-def hello_world():  # put application's code here
-    return 'Hello World!'
+# Configurar a chave da API
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
-if __name__ == '__main__':
-    app.run()
+if __name__ == "__main__":
+    app.run(debug=True)
