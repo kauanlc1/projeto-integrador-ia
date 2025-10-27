@@ -1,0 +1,4 @@
+openai~=2.6.1
+Flask~=3.1.2
+python-dotenv~=1.2.1
+fitz~=0.0.1.dev2
