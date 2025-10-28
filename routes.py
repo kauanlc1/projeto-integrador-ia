@@ -3,7 +3,8 @@ from services import (
     extract_notice_data,
     search_notice,
     extract_roadmap,
-    generate_questions
+    generate_questions,
+    generate_test_response,
 )
 
 api_routes = Blueprint('api', __name__)
@@ -60,4 +61,17 @@ def generate_questions_route():
         return jsonify({"error": "Campo 'subject' é obrigatório."}), 400
 
     result = generate_questions(subject, quantity)
+    return jsonify(result), 200
+
+
+# 5️⃣ Teste de rota
+@api_routes.route('/test', methods=['POST'])
+def test_route():
+    content = request.get_json()
+
+    print(f"Content payload: {content}")
+
+    prompt = content.get('prompt')
+
+    result = generate_test_response(prompt)
     return jsonify(result), 200
