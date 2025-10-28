@@ -1,16 +1,37 @@
-import openai
+import os
 import fitz
+from openai import OpenAI
+from dotenv import load_dotenv
+
+load_dotenv()
+
+api_key = os.getenv("OPENAI_API_KEY")
 
 
-# === Função genérica para conversar com GPT ===
-def call_gpt(prompt, max_tokens=1000):
-    response = openai.Completion.create(
-        model="gpt-5.0",
-        prompt=prompt,
-        max_tokens=max_tokens,
-        temperature=0.7
-    )
-    return response.choices[0].text.strip()
+def generate_completion(prompt):
+    client = OpenAI(api_key=api_key)
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{
+                "role": "system",
+                "content": """
+                    Você é um assistente que irá responder com base no edital e gerar roadmaps e questões de estudo de forma clara e detalhada.
+                    """
+            }, {
+                "role": "user",
+                "content": prompt
+            }],
+            temperature=0.5,
+            top_p=0.9,
+            frequency_penalty=1,
+            presence_penalty=1,
+        )
+        return response['choices'][0]['message']['content']
+    except Exception as e:
+        print(f"Erro ao chamar a API: {e}")
+        return None
 
 
 # === 1️⃣ Extrair dados do edital ===
@@ -21,9 +42,9 @@ def extract_notice_data(notice_text):
     - Breve descrição
     - Lista de vagas (nome e breve descrição)
     
-    Retorne em JSON no formato:
+    Retorne em formato JSON conforme este modelo:
     {{
-        "Notice": "...",
+        "Notice": "{notice_text}",
         "NoticeTitle": "...",
         "NoticeDescription": "...",
         "JobRoles": [{{"Name": "...", "Description": "..."}}]
@@ -33,7 +54,7 @@ def extract_notice_data(notice_text):
     {notice_text}
     """
 
-    gpt_response = call_gpt(prompt)
+    gpt_response = generate_completion(prompt)
     return {"ExamDataView": gpt_response}
 
 
@@ -51,7 +72,7 @@ def search_notice(prompt):
         "JobRoles": [{{"Name": "...", "Description": "..."}}]
     }}
     """
-    gpt_response = call_gpt(gpt_prompt)
+    gpt_response = generate_completion(gpt_prompt)
     return {"ExamDataView": gpt_response}
 
 
@@ -81,7 +102,7 @@ def extract_roadmap(selected_job_role, notice_text):
         ]
     }}
     """
-    gpt_response = call_gpt(prompt, max_tokens=1500)
+    gpt_response = generate_completion(prompt)
     return {"RoadmapDataView": gpt_response}
 
 
@@ -113,8 +134,12 @@ def generate_questions(subject, quantity):
     {description}
     """
 
-    gpt_response = call_gpt(prompt, max_tokens=1200)
+    gpt_response = generate_completion(prompt)
     return {"Questions": gpt_response}
+
+
+def generate_test_response(prompt):
+    return "Resposta gerada com base no prompt: " + prompt
 
 
 # === Utilitário para ler PDFs ===
