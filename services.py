@@ -17,7 +17,7 @@ def generate_completion(prompt, instructions, schema_key):
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4",
+            model="gpt-4o-mini",
             messages=[
                 {
                     "role": "system",
@@ -80,19 +80,40 @@ def extract_notice_data(notice_text):
 # === 2️⃣ Procurar edital ===
 def search_notice(prompt):
     gpt_prompt = f"""
-    Encontre um edital relacionado ao tema:
-    "{prompt}"
+    Você recebeu o nome de um concurso, e o objetivo é buscar os editais mais semelhantes relacionados a ele. Realize uma busca na web para encontrar os 10 editais mais próximos do título: "{prompt}".
+    
+    Os editais devem ser ordenados por similaridade de título e trazer as informações mais relevantes, como:
+
+    - O título completo do edital + ' - '+ Ano do edital
+    - Uma breve descrição do edital
+    - As vagas oferecidas no edital (nome da vaga e descrição breve)
+
+    Apenas traga os 10 primeiros editais mais similares, ordenados da maior para a menor similaridade.
+
+    Caso não encontre resultados suficientes, retorne a mensagem "Nenhum edital encontrado".
     """
 
     instruction = f"""
-    Retorne no formato JSON:
+    Retorne os resultados de editais encontrados na web, no seguinte formato JSON:
     {{
-        "Notice": "...",
-        "NoticeTitle": "...",
-        "NoticeDescription": "...",
-        "JobRoles": [{{"Name": "...", "Description": "..."}}]
+        "Notices": [
+            {{
+                "Notice": "Texto completo do edital",
+                "NoticeTitle": "Título do edital",
+                "NoticeDescription": "Descrição breve do edital",
+                "JobRoles": [
+                    {{
+                        "Name": "Nome da vaga",
+                        "Description": "Breve descrição da vaga"
+                    }}
+                ]
+            }},
+            ...
+        ]
     }}
+    Se não houver resultados, retorne "Nenhum edital encontrado".
     """
+
     gpt_response = generate_completion(gpt_prompt, instruction, 'search_notice_schema')
     return {"ExamDataView": gpt_response}
 
