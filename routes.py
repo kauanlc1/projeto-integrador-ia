@@ -1,3 +1,4 @@
+import openai
 from flask import Blueprint, request, jsonify
 from services import (
     extract_notice_data,
@@ -68,10 +69,23 @@ def generate_questions_route():
 @api_routes.route('/test', methods=['POST'])
 def test_route():
     content = request.get_json()
-
     print(f"Content payload: {content}")
 
     prompt = content.get('prompt')
 
+    # Gerar o resultado com a função
     result = generate_test_response(prompt)
-    return jsonify(result), 200
+
+    # Diagnóstico: imprima o tipo do resultado
+    print(f"Tipo do resultado: {type(result)}")
+
+    print(f"Resultado: {result}")
+
+    # Caso o resultado seja um dict, retorne como JSON
+    if isinstance(result, dict):
+        return jsonify(result), 200
+    # Caso seja uma string, retorne como JSON
+    elif isinstance(result, str):
+        return jsonify({"result": result}), 200
+    else:
+        return jsonify({"error": "Tipo de resultado inválido"}), 400
