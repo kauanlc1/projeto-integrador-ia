@@ -29,6 +29,6 @@ jobs:
       - name: Deploy to Heroku  # Aqui pode ser alterado para outro serviço, caso seja a vontade
         uses: akshnz/heroku-deploy-action@v2
         with:
-          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}  # var definida no Heroku
+          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}  # Var definida no Heroku
           heroku_app_name: ${{ secrets.HEROKU_API_NAME }}
           heroku_email: ${{ secrets.HEROKU_API_EMAIL }}
