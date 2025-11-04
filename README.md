@@ -121,7 +121,7 @@ No **arquivo `deploy.yml`**, essas variáveis são usadas para o deploy automát
 
 ## 📂 Estrutura do projeto
 
-`
+```
 ├── app.py                  # Arquivo principal da aplicação Flask
 ├── requirements.txt        # Dependências do projeto
 ├── .github/
@@ -133,4 +133,4 @@ No **arquivo `deploy.yml`**, essas variáveis são usadas para o deploy automát
 ├── models/
 │   └── history.py          # Modelo de dados do histórico de editais
 └── README.md               # Este arquivo
-`
+```
