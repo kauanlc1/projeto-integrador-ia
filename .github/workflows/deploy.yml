@@ -14,21 +14,26 @@ jobs:
 
     steps:
       - name: Check out the code
-        uses: actions/checkout@v2  # Baixa o código do repo
+        uses: actions/checkout@v2
 
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: '3.12'  # Versão py
+          python-version: '3.12'
 
       - name: Install dependencies
-        run: |    # Instala as dependências listadas no requirements.txt
-          python -m pip install --upgrade pip     
-          pip install -r requirements.txt       
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-      - name: Deploy to Heroku  # Aqui pode ser alterado para outro serviço, caso seja a vontade
-        uses: akhileshns/heroku-deploy@v3.12.12
+      - name: Install Heroku CLI
+        run: |
+          curl https://cli-assets.heroku.com/install.sh | sh
+
+      - name: Deploy to Heroku
+        uses: akshnz/heroku-deploy-action@v2
         with:
-          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}  # Var definida no Heroku
+          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
           heroku_app_name: ${{ secrets.HEROKU_API_NAME }}
           heroku_email: ${{ secrets.HEROKU_API_EMAIL }}
+
