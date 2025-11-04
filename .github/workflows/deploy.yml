@@ -2,38 +2,33 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ "master" ]
+    branches:
+      - master  # Roda o workflow sempre que tiver um push linkado na 'master'
   pull_request:
-    branches: [ "master" ]
-
-permissions:
-  contents: read
+    branches:
+      - master  # Roda tb para pull requests feitos p/ 'master'
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Check out the code
-      uses: actions/checkout@v4
+      - name: Check out the code
+        uses: actions/checkout@v2  # Baixa o código do repo
 
-    - name: Set up Python 3.12
-      uses: actions/setup-python@v3
-      with:
-        python-version: "3.12"
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.12'  # Versão py
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt  # Instala todas as dependências do requirements.txt
+      - name: Install dependencies
+        run: |    # Instala as dependências listadas no requirements.txt
+          python -m pip install --upgrade pip     
+          pip install -r requirements.txt       
 
-    - name: Run tests
-      run: |
-        pytest  # Roda os testes automatizados com pytest
-
-    - name: Deploy to Heroku
-      uses: akshnz/heroku-deploy-action@v2
-      with:
-        heroku_api_key: ${{ secrets.HEROKU_API_KEY }}  # Chave da API do Heroku
-        heroku_app_name: ${{ secrets.HEROKU_API_NAME }}
-        heroku_email: ${{ secrets.HEROKU_API_EMAIL }}
+      - name: Deploy to Heroku  # Aqui pode ser alterado para outro serviço, caso seja a vontade
+        uses: akshnz/heroku-deploy-action@v2
+        with:
+          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}  # Var definida no Heroku
+          heroku_app_name: ${{ secrets.HEROKU_API_NAME }}
+          heroku_email: ${{ secrets.HEROKU_API_EMAIL }}
