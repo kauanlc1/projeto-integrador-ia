@@ -92,48 +92,55 @@ roadmap_data_schema = {
 }
 
 questions_schema = {
-    "type": "array",
-    "items": {
-        "type": "object",
-        "properties": {
-            "Question": {
-                "type": "string",
-                "description": "Texto da questão"
-            },
-            "OptionA": {
-                "type": "string",
-                "description": "Alternativa A"
-            },
-            "OptionB": {
-                "type": "string",
-                "description": "Alternativa B"
-            },
-            "OptionC": {
-                "type": "string",
-                "description": "Alternativa C"
-            },
-            "OptionD": {
-                "type": "string",
-                "description": "Alternativa D"
-            },
-            "CorrectOption": {
-                "type": "string",
-                "enum": ["A", "B", "C", "D"],
-                "description": "Alternativa correta"
-            },
-            "Order": {
-                "type": "integer",
-                "description": "Ordem da questão"
-            },
-            "Origin": {
-                "type": "string",
-                "enum": ["Assessment", "Module", "Lesson"],
-                "description": "Origem da questão"
+    "type": "object",
+    "properties": {
+        "Questions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "Question": {
+                        "type": "string",
+                        "description": "Texto da questão"
+                    },
+                    "OptionA": {
+                        "type": "string",
+                        "description": "Alternativa A"
+                    },
+                    "OptionB": {
+                        "type": "string",
+                        "description": "Alternativa B"
+                    },
+                    "OptionC": {
+                        "type": "string",
+                        "description": "Alternativa C"
+                    },
+                    "OptionD": {
+                        "type": "string",
+                        "description": "Alternativa D"
+                    },
+                    "CorrectOption": {
+                        "type": "string",
+                        "enum": ["A", "B", "C", "D"],
+                        "description": "Alternativa correta"
+                    },
+                    "Order": {
+                        "type": "integer",
+                        "description": "Ordem da questão"
+                    },
+                    "Origin": {
+                        "type": "string",
+                        "enum": ["Assessment", "Module", "Lesson"],
+                        "description": "Origem da questão"
+                    }
+                },
+                "required": ["Question", "OptionA", "OptionB", "OptionC", "OptionD", "CorrectOption", "Order", "Origin"],
+                "additionalProperties": False
             }
-        },
-        "required": ["Question", "OptionA", "OptionB", "OptionC", "OptionD", "CorrectOption", "Order", "Origin"],
-        "additionalProperties": False
-    }
+        }
+    },
+    "required": ["Questions"],
+    "additionalProperties": False
 }
 
 search_notice_schema = {
