@@ -79,6 +79,8 @@ def extract_notice_data(notice_text):
 # === 2️⃣ Procurar edital ===
 def search_notice(prompt):
     gpt_prompt = f"""
+    Nome do concurso: {prompt}  
+    
     Você recebeu o nome de um concurso, e o objetivo é buscar os editais mais semelhantes relacionados a ele. Realize uma busca na web para encontrar os 10 editais mais próximos do título: "{prompt}".
     
     Os editais devem ser ordenados por similaridade de título e trazer as informações mais relevantes, como:
