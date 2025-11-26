@@ -32,3 +32,4 @@ zstandard~=0.25.0
 numpy~=2.0.0
 pandas~=2.2.2
 dotenv~=0.9.9
+gunicorn
