@@ -1,5 +1,6 @@
 import os
 import fitz
+import json
 from openai import OpenAI
 from dotenv import load_dotenv
 
@@ -39,7 +40,14 @@ def generate_completion(prompt, instructions, schema_key):
                 }
             }
         )
-        return response.to_dict()
+
+        # Extrair somente o JSON retornado
+        raw_content = response.choices[0].message["content"]
+
+        # Transformar string JSON → dict
+        parsed_json = json.loads(raw_content)
+
+        return parsed_json
     except Exception as e:
         print(f"Erro ao chamar a API: {e}")
         return None
