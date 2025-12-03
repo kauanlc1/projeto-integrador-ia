@@ -32,8 +32,6 @@ def generate_completion(prompt, instructions, schema_key):
             }
         )
 
-        print(response)
-
         raw_content = response.choices[0].message.content.replace("'", "\"")
         parsed_json = json.loads(raw_content)
         cleaned_json = clean_empty_keys(parsed_json)
@@ -80,7 +78,7 @@ def extract_notice_data(notice_text):
     return {"ExamDataView": gpt_response}
 
 
-# === 2️⃣ Procurar edital (Está com problema) ===
+# === 2️⃣ Procurar edital ===
 def search_notice(prompt):
     gpt_prompt = f"""
     Nome do concurso: {prompt}
@@ -97,10 +95,10 @@ def search_notice(prompt):
     Para garantir que você está trazendo um pdf real, solicitei no campo 'link' um link real do PDF pois vou verificar.
     
     IMPORTANTE:
-    ❌ Não gere 10 editais
-    ❌ Não preencha placeholders como "outros editais"
-    ❌ Não invente dados irreais sem contexto
-    ❌ Não deixe campos vazios
+    Não gere 10 editais, GERE APENAS O EDITAL MAIS RELEVANTE encontrado com base no nome do concurso fornecido.
+    Não preencha placeholders como "outros editais"
+    Não invente dados irreais sem contexto
+    Não deixe campos vazios
     
     ✔ Retorne apenas o MELHOR e mais representativo edital disponível.
     """
@@ -132,7 +130,7 @@ def search_notice(prompt):
 
 
 # === 3️⃣ Extrair roadmap de estudos ===
-def extract_roadmap(notice_text, auxiliar_prompt, selected_job_role):
+def extract_roadmap(notice_text, selected_job_role):
     cleaned_notice = preprocess_notice(notice_text, selected_job_role)
 
     prompt = f"""
@@ -197,10 +195,8 @@ def extract_roadmap(notice_text, auxiliar_prompt, selected_job_role):
     }
     """
 
-    # Gerar a resposta da API
     gpt_response = generate_completion(prompt, instruction, 'roadmap_data_schema')
 
-    # Verificar se a resposta é um dicionário válido
     if isinstance(gpt_response, dict):
         return {"RoadmapDataView": gpt_response}
     else:
@@ -245,23 +241,19 @@ def preprocess_notice(notice_text, selected_job_role):
     """
     Função para limpar e extrair o conteúdo relevante do edital com base na vaga.
     """
-    # Usar expressões regulares para procurar e extrair conteúdo técnico relacionado à vaga
-    # Exemplo de padrões comuns em editais, ajustáveis conforme a estrutura do edital
     relevant_sections = []
 
-    # Buscando tópicos relacionados à vaga selecionada
     patterns = [
-        rf"(?<=\bCONTEÚDOS PROGRAMÁTICOS\b)(.*?)(?=\b(PROGRAMA DA PROVA|CONHECIMENTOS BÁSICOS|CONHECIMENTOS ESPECÍFICOS)\b)",  # Extrair a parte técnica do edital
-        rf"(?<=\b{re.escape(selected_job_role)}\b)(.*?)(?=\n|$)",  # Buscar detalhes específicos relacionados à vaga
-        r"\n\s*\n",  # Remover quebras de linha excessivas
-        r"\t",  # Remover tabulações
+        rf"(?<=\bCONTEÚDOS PROGRAMÁTICOS\b)(.*?)(?=\b(PROGRAMA DA PROVA|CONHECIMENTOS BÁSICOS|CONHECIMENTOS ESPECÍFICOS)\b)",
+        rf"(?<=\b{re.escape(selected_job_role)}\b)(.*?)(?=\n|$)",
+        r"\n\s*\n",
+        r"\t",
     ]
 
     for pattern in patterns:
         matches = re.findall(pattern, notice_text, re.DOTALL)
         relevant_sections.extend(matches)
 
-    # Limpeza do texto removendo espaços extras ou outras formatações desnecessárias
     cleaned_notice = ' '.join(relevant_sections).strip()
 
     return cleaned_notice
@@ -274,51 +266,6 @@ def clean_empty_keys(response_data):
         return [clean_empty_keys(item) for item in response_data if item not in [None, "", {}, []]]
     else:
         return response_data
-
-
-def generate_roadmap_based_on_content(selected_job_role, extracted_content):
-    prompt = f"""
-    Com base nos seguintes tópicos técnicos extraídos do edital para a vaga de {selected_job_role}:
-
-    {extracted_content}
-
-    Gere um roadmap de estudos completo, com módulos temáticos, lições detalhadas e com foco nos tópicos extraídos.
-    O roadmap deve ser progressivo e cobrir completamente os tópicos mencionados.
-    """
-
-    instruction = """
-    Retorne um JSON estruturado com os seguintes campos obrigatórios:
-
-    - Title (Título do roadmap)
-    - Description (Descrição geral do roadmap)
-    - Modules (Lista de módulos, no mínimo 3 e no máximo 7)
-    - Lessons (Cada módulo deve ter entre 3 e 7 lições)
-
-    Lembre-se de incluir as lições com base nos tópicos extraídos, sem inventar conteúdo.
-    """
-
-    return extract_roadmap(extracted_content, prompt, instruction)
-
-
-def generate_questions_based_on_role(selected_job_role):
-    prompt = f"""
-    Gere um conjunto de 10 questões de múltipla escolha sobre a vaga de {selected_job_role}, abordando tópicos
-    técnicos frequentemente exigidos em concursos para essa função. As questões devem cobrir as áreas mais comuns e essenciais,
-    como fundamentos de TI, segurança, redes, desenvolvimento, e bancos de dados.
-
-    Para cada questão, forneça 4 alternativas e uma resposta correta.
-    """
-
-    instruction = """
-    Retorne um JSON com a seguinte estrutura para cada questão gerada:
-
-    - Question: A questão
-    - OptionA, OptionB, OptionC, OptionD: As alternativas
-    - CorrectOption: A alternativa correta (ex: "A")
-    - Order: A ordem da questão (1, 2, 3, ...)
-    """
-
-    return generate_questions(selected_job_role, 10)
 
 
 def extract_job_related_content(notice_text, selected_job_role):
