@@ -155,7 +155,7 @@ def extract_roadmap(notice_text, auxiliar_prompt, selected_job_role):
     2. **Descrições** devem ser completas e específicas, com pelo menos duas frases explicativas.
     3. **Estrutura** deve ser bem organizada, com **módulos e lições** progressivas e sem repetições.
     4. Não deixe nenhum campo vazio (sem valores), nem chaves adicionais.
-    5. Retornar de 3 a 6 módulos, IMPLEMENTAR OS MAIS CONEXOS À VAGA EM QUESTÃO.
+    5. Retornar APENAS 3, IMPLEMENTAR OS MAIS CONEXOS À VAGA EM QUESTÃO.
     
     1. Não use aspas extras, quebras de linha desnecessárias, ou caracteres especiais como '\\'.
     2. Mantenha as chaves do JSON corretamente formatadas, sem erros ou espaços adicionais.
@@ -267,7 +267,7 @@ def generate_roadmap_based_on_content(selected_job_role, extracted_content):
     Lembre-se de incluir as lições com base nos tópicos extraídos, sem inventar conteúdo.
     """
 
-    return extract_roadmap(extracted_content, prompt)
+    return extract_roadmap(extracted_content, prompt, instruction)
 
 
 def generate_questions_based_on_role(selected_job_role):
