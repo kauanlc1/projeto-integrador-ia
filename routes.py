@@ -9,6 +9,7 @@ from services import (
     extract_roadmap,
     generate_questions,
     generate_test_response, extract_data_from_pdf, clean_pdf_text, extract_programmatic_contents,
+    extract_job_related_content,
 )
 
 api_routes = Blueprint('api', __name__)
@@ -73,7 +74,7 @@ def extract_roadmap_route():
     if not selected_job_role or not notice:
         return jsonify({"error": "Campos 'selectedJobRole' e 'notice' são obrigatórios."}), 400
 
-    result = extract_roadmap(selected_job_role, notice, auxiliar_prompt)
+    result = extract_roadmap(notice, auxiliar_prompt, selected_job_role)
     return jsonify(result), 200
 
 
@@ -115,6 +116,24 @@ def test_route():
         return jsonify({"result": result}), 200
     else:
         return jsonify({"error": "Tipo de resultado inválido"}), 400
+
+
+@api_routes.route('/generate_roadmap_or_questions', methods=['POST'])
+def generate_roadmap_or_questions_route():
+    content = request.get_json()
+    selected_job_role = content.get('selectedJobRole')
+    notice = content.get('notice')
+
+    # Extrair conteúdo técnico do edital
+    extracted_content = extract_job_related_content(notice, selected_job_role)
+
+    # Verifique se conseguimos extrair conteúdo específico da vaga
+    if "Conteúdo técnico não encontrado" in extracted_content:
+        # Caso não tenha informações específicas, gerar perguntas
+        return generate_questions_based_on_role(selected_job_role)
+    else:
+        # Caso contrário, geramos o roadmap com base no conteúdo extraído
+        return generate_roadmap_based_on_content(selected_job_role, extracted_content)
 
 
 @api_routes.route('/upload_notice_pdf', methods=['POST'])

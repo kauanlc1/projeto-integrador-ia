@@ -1,6 +1,5 @@
 import os
 import re
-
 import fitz
 import json
 import traceback
@@ -19,21 +18,11 @@ def generate_completion(prompt, instructions, schema_key):
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-5-mini",
             messages=[
-                {
-                    "role": "system",
-                    "content": instructions
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
+                {"role": "system", "content": instructions},
+                {"role": "user", "content": prompt}
             ],
-            temperature=0.5,
-            top_p=0.9,
-            frequency_penalty=1,
-            presence_penalty=1,
             response_format={
                 "type": "json_schema",
                 "json_schema": {
@@ -43,15 +32,11 @@ def generate_completion(prompt, instructions, schema_key):
             }
         )
 
-        print(response)
-
-        # Extrair somente o JSON retornado
-        raw_content = response.choices[0].message.content
-
-        # Transformar string JSON → dict
+        raw_content = response.choices[0].message.content.replace("'", "\"")
         parsed_json = json.loads(raw_content)
+        cleaned_json = clean_empty_keys(parsed_json)
 
-        return parsed_json
+        return cleaned_json
     except Exception as e:
         import traceback
         print("Erro ao chamar a API:")
@@ -145,18 +130,17 @@ def search_notice(prompt):
 
 
 # === 3️⃣ Extrair roadmap de estudos ===
-def extract_roadmap(selected_job_role, notice_text, auxiliar_prompt):
+def extract_roadmap(notice_text, auxiliar_prompt, selected_job_role):
     prompt = f"""
-    {auxiliar_prompt}.
+    {auxiliar_prompt}
     
     O roadmap deve sempre:
     
     - Ser dividido em MÓDULOS temáticos
-    - No mínimo 7 MÓDULOS COMPLETOS
-    - Cada módulo deve conter entre 4 e 7 LIÇÕES
     - As lições devem ser objetivas, claras e progressivas
     - A ordem importa (começo → intermediário → avançado)
-    - Deve cobrir TODO o conteúdo técnico listado no edital, sem inventar
+    - Deve cobrir TODO o conteúdo técnico listado no edital.
+    - Se houver POUCO conteúdo técnico no edital ou NÃO HOUVER, crie informações baseadas em conteúdos técnicos reais vinculados a vaga.
     - Não incluir nada que não apareça no edital
     
     Aqui está o edital para análise:
@@ -164,53 +148,43 @@ def extract_roadmap(selected_job_role, notice_text, auxiliar_prompt):
     {notice_text}
     """
 
-    instruction = """
-    Você deve retornar um JSON seguindo ESTRITAMENTE o schema fornecido.
+    instruction = f"""
+    Você deve gerar um roadmap detalhado para a vaga de {selected_job_role} e retornar um JSON com a estrutura que segue abaixo:
     
-    REGRAS IMPORTANTES:
+    1. **Títulos dos módulos e lições** devem ser claros e refletir o conteúdo do edital.
+    2. **Descrições** devem ser completas e específicas, com pelo menos duas frases explicativas.
+    3. **Estrutura** deve ser bem organizada, com **módulos e lições** progressivas e sem repetições.
+    4. Não deixe nenhum campo vazio (sem valores), nem chaves adicionais.
+    5. Retornar de 3 a 6 módulos, IMPLEMENTAR OS MAIS CONEXOS À VAGA EM QUESTÃO.
     
-    1. NÃO criar chaves vazias como "", " ", ".", ",", etc.
-    2. Mantém apenas os campos permitidos pelo schema:
-       - Title
-       - Description
-       - Modules
-       - Lessons
-       - Order
+    1. Não use aspas extras, quebras de linha desnecessárias, ou caracteres especiais como '\\'.
+    2. Mantenha as chaves do JSON corretamente formatadas, sem erros ou espaços adicionais.
+    3. Não use as palavras 'Descrição' com caracteres extras ou inválidos.
+    4. CRUCIAL que não retorne módulos ou lições vazias. 
+    5. Se alguma lição ou módulo não for encontrado ou estiver incompleto, ignore ou retorne um aviso claro.
+    6. A chave 'Lessons' de cada módulo deve ter entre 3 a 7 lições, se houver mais, ajuste a estrutura de acordo.
+    7. A chave 'Order' de cada módulo e lição deve ser numérica e crescente.
     
-    3. Cada Módulo DEVE conter:
-       - Title
-       - Description
-       - Order
-       - Lessons (array)
-    
-    4. Cada Lesson DEVE conter:
-       - Title
-       - Description
-       - Order
-    
-    5. Estrutura mínima obrigatória:
-       - Entre 3 e 7 módulos
-       - Cada módulo com 3 a 7 lições
-       - Descrições devem ser detalhadas (mínimo 2 frases)
-    
-    6. Não inventar conteúdo fora do edital.
-    
-    7. O título dos módulos deve sempre refletir um tópico real do edital.
-    
-    Formato JSON de exemplo:
+    Aqui está o edital para análise:
+    {notice_text}
+    """
+
+    # Adicionando o formato final esperado com JSON bem estruturado
+    instruction += """
+    Formato esperado:
     
     {
       "Title": "Roadmap de Estudos para [Vaga]",
-      "Description": "Descrição geral...",
+      "Description": "Descrição geral do roadmap...",
       "Modules": [
         {
           "Title": "Nome do módulo",
-          "Description": "Descrição detalhada...",
+          "Description": "Descrição detalhada do módulo...",
           "Order": 1,
           "Lessons": [
             {
               "Title": "Nome da lição",
-              "Description": "Descrição detalhada...",
+              "Description": "Descrição da lição...",
               "Order": 1
             }
           ]
@@ -219,8 +193,14 @@ def extract_roadmap(selected_job_role, notice_text, auxiliar_prompt):
     }
     """
 
+    # Gerar a resposta da API
     gpt_response = generate_completion(prompt, instruction, 'roadmap_data_schema')
-    return {"RoadmapDataView": gpt_response}
+
+    # Verificar se a resposta é um dicionário válido
+    if isinstance(gpt_response, dict):
+        return {"RoadmapDataView": gpt_response}
+    else:
+        return {"error": "A resposta da API não está no formato esperado."}
 
 
 # === 4️⃣ Gerar questões ===
@@ -255,6 +235,90 @@ def generate_questions(subject, quantity):
 
     gpt_response = generate_completion(prompt, instruction, 'questions_schema')
     return {"Questions": gpt_response}
+
+
+def clean_empty_keys(response_data):
+    if isinstance(response_data, dict):
+        return {key: clean_empty_keys(value) for key, value in response_data.items() if value not in [None, "", {}, []]}
+    elif isinstance(response_data, list):
+        return [clean_empty_keys(item) for item in response_data if item not in [None, "", {}, []]]
+    else:
+        return response_data
+
+
+def generate_roadmap_based_on_content(selected_job_role, extracted_content):
+    prompt = f"""
+    Com base nos seguintes tópicos técnicos extraídos do edital para a vaga de {selected_job_role}:
+
+    {extracted_content}
+
+    Gere um roadmap de estudos completo, com módulos temáticos, lições detalhadas e com foco nos tópicos extraídos.
+    O roadmap deve ser progressivo e cobrir completamente os tópicos mencionados.
+    """
+
+    instruction = """
+    Retorne um JSON estruturado com os seguintes campos obrigatórios:
+
+    - Title (Título do roadmap)
+    - Description (Descrição geral do roadmap)
+    - Modules (Lista de módulos, no mínimo 3 e no máximo 7)
+    - Lessons (Cada módulo deve ter entre 3 e 7 lições)
+
+    Lembre-se de incluir as lições com base nos tópicos extraídos, sem inventar conteúdo.
+    """
+
+    return extract_roadmap(extracted_content, prompt)
+
+
+def generate_questions_based_on_role(selected_job_role):
+    prompt = f"""
+    Gere um conjunto de 10 questões de múltipla escolha sobre a vaga de {selected_job_role}, abordando tópicos
+    técnicos frequentemente exigidos em concursos para essa função. As questões devem cobrir as áreas mais comuns e essenciais,
+    como fundamentos de TI, segurança, redes, desenvolvimento, e bancos de dados.
+
+    Para cada questão, forneça 4 alternativas e uma resposta correta.
+    """
+
+    instruction = """
+    Retorne um JSON com a seguinte estrutura para cada questão gerada:
+
+    - Question: A questão
+    - OptionA, OptionB, OptionC, OptionD: As alternativas
+    - CorrectOption: A alternativa correta (ex: "A")
+    - Order: A ordem da questão (1, 2, 3, ...)
+    """
+
+    return generate_questions(selected_job_role, 10)
+
+
+def extract_job_related_content(notice_text, selected_job_role):
+    prompt = f"""
+    Leia o edital abaixo e extraia SOMENTE as partes relacionadas aos conteúdos técnicos necessários
+    para a vaga de "{selected_job_role}". Se houver uma seção de "Conteúdos Programáticos", extraia essa parte.
+    Caso contrário, gere um resumo com os tópicos técnicos mais comuns para essa vaga.
+
+    Edital:
+    {notice_text}
+    """
+
+    instruction = """
+    Retorne somente os tópicos técnicos relacionados à vaga, no seguinte formato:
+
+    - Tópico 1
+    - Tópico 2
+    - Tópico 3
+
+    Se não encontrar nada explícito, gere uma lista de tópicos comuns para a vaga de "{selected_job_role}",
+    baseado nas características gerais dos concursos dessa área.
+    """
+
+    gpt_response = generate_completion(prompt, instruction, 'exam_data_schema')
+
+    # Extração do conteúdo relevante
+    if gpt_response:
+        return gpt_response
+    else:
+        return "Conteúdo técnico não encontrado no edital."
 
 
 def extract_programmatic_contents(text):
