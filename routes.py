@@ -74,7 +74,7 @@ def extract_roadmap_route():
     if not selected_job_role or not notice:
         return jsonify({"error": "Campos 'selectedJobRole' e 'notice' são obrigatórios."}), 400
 
-    result = extract_roadmap(notice, auxiliar_prompt, selected_job_role)
+    result = extract_roadmap(notice, auxiliar_prompt)
     return jsonify(result), 200
 
 
