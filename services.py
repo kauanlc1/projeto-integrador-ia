@@ -18,7 +18,7 @@ def generate_completion(prompt, instructions, schema_key):
 
     try:
         response = client.chat.completions.create(
-            model="gpt-5-mini",
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": instructions},
                 {"role": "user", "content": prompt}
@@ -31,6 +31,8 @@ def generate_completion(prompt, instructions, schema_key):
                 }
             }
         )
+
+        print(response)
 
         raw_content = response.choices[0].message.content.replace("'", "\"")
         parsed_json = json.loads(raw_content)
@@ -131,21 +133,23 @@ def search_notice(prompt):
 
 # === 3️⃣ Extrair roadmap de estudos ===
 def extract_roadmap(notice_text, auxiliar_prompt, selected_job_role):
+    cleaned_notice = preprocess_notice(notice_text, selected_job_role)
+
     prompt = f"""
-    {auxiliar_prompt}
+    O MAIS IMPORTANTE E ANTES DE TUDO, ME DÊ RESPOSTA RÁPIDA E ASSERTIVA, RÁPIDA MESMO.
+    
+    Abaixo estão as informações extraídas do edital para a vaga de {selected_job_role}:
+
+    {cleaned_notice}
     
     O roadmap deve sempre:
     
     - Ser dividido em MÓDULOS temáticos
     - As lições devem ser objetivas, claras e progressivas
     - A ordem importa (começo → intermediário → avançado)
-    - Deve cobrir TODO o conteúdo técnico listado no edital.
-    - Se houver POUCO conteúdo técnico no edital ou NÃO HOUVER, crie informações baseadas em conteúdos técnicos reais vinculados a vaga.
-    - Não incluir nada que não apareça no edital
-    
-    Aqui está o edital para análise:
-    
-    {notice_text}
+    - Deve cobrir TODO o conteúdo técnico listado nas informações extraídas.
+    - Se houver POUCO conteúdo técnico nas informações extraídas ou NÃO HOUVER, crie informações baseadas em conteúdos técnicos reais vinculados a vaga.
+    - Não incluir nada que não apareça nas informações extraídas
     """
 
     instruction = f"""
@@ -155,7 +159,7 @@ def extract_roadmap(notice_text, auxiliar_prompt, selected_job_role):
     2. **Descrições** devem ser completas e específicas, com pelo menos duas frases explicativas.
     3. **Estrutura** deve ser bem organizada, com **módulos e lições** progressivas e sem repetições.
     4. Não deixe nenhum campo vazio (sem valores), nem chaves adicionais.
-    5. Retornar APENAS 3, IMPLEMENTAR OS MAIS CONEXOS À VAGA EM QUESTÃO.
+    5. Retornar APENAS 3 MÓDULOS, IMPLEMENTAR OS MAIS CONEXOS À VAGA EM QUESTÃO.
     
     1. Não use aspas extras, quebras de linha desnecessárias, ou caracteres especiais como '\\'.
     2. Mantenha as chaves do JSON corretamente formatadas, sem erros ou espaços adicionais.
@@ -235,6 +239,32 @@ def generate_questions(subject, quantity):
 
     gpt_response = generate_completion(prompt, instruction, 'questions_schema')
     return {"Questions": gpt_response}
+
+
+def preprocess_notice(notice_text, selected_job_role):
+    """
+    Função para limpar e extrair o conteúdo relevante do edital com base na vaga.
+    """
+    # Usar expressões regulares para procurar e extrair conteúdo técnico relacionado à vaga
+    # Exemplo de padrões comuns em editais, ajustáveis conforme a estrutura do edital
+    relevant_sections = []
+
+    # Buscando tópicos relacionados à vaga selecionada
+    patterns = [
+        rf"(?<=\bCONTEÚDOS PROGRAMÁTICOS\b)(.*?)(?=\b(PROGRAMA DA PROVA|CONHECIMENTOS BÁSICOS|CONHECIMENTOS ESPECÍFICOS)\b)",  # Extrair a parte técnica do edital
+        rf"(?<=\b{re.escape(selected_job_role)}\b)(.*?)(?=\n|$)",  # Buscar detalhes específicos relacionados à vaga
+        r"\n\s*\n",  # Remover quebras de linha excessivas
+        r"\t",  # Remover tabulações
+    ]
+
+    for pattern in patterns:
+        matches = re.findall(pattern, notice_text, re.DOTALL)
+        relevant_sections.extend(matches)
+
+    # Limpeza do texto removendo espaços extras ou outras formatações desnecessárias
+    cleaned_notice = ' '.join(relevant_sections).strip()
+
+    return cleaned_notice
 
 
 def clean_empty_keys(response_data):
