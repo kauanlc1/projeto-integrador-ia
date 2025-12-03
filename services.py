@@ -1,9 +1,11 @@
 import os
+import re
+
 import fitz
 import json
+import traceback
 from openai import OpenAI
 from dotenv import load_dotenv
-
 from models import schemas_dict
 
 load_dotenv()
@@ -41,16 +43,20 @@ def generate_completion(prompt, instructions, schema_key):
             }
         )
 
+        print(response)
+
         # Extrair somente o JSON retornado
-        raw_content = response.choices[0].message["content"]
+        raw_content = response.choices[0].message.content
 
         # Transformar string JSON → dict
         parsed_json = json.loads(raw_content)
 
         return parsed_json
     except Exception as e:
-        print(f"Erro ao chamar a API: {e}")
-        return None
+        import traceback
+        print("Erro ao chamar a API:")
+        print(traceback.format_exc())
+        return {"error": str(e)}
 
 
 # === 1️⃣ Extrair dados do edital ===
@@ -60,6 +66,9 @@ def extract_notice_data(notice_text):
     - Título do edital
     - Breve descrição
     - Lista de vagas (nome e breve descrição)
+    
+    Atenção:
+    - Não leve em consideração os vazamentos de linha identificados por '/n'
     """
 
     instruction = f"""
@@ -84,22 +93,29 @@ def extract_notice_data(notice_text):
     return {"ExamDataView": gpt_response}
 
 
-# === 2️⃣ Procurar edital ===
+# === 2️⃣ Procurar edital (Está com problema) ===
 def search_notice(prompt):
     gpt_prompt = f"""
-    Nome do concurso: {prompt}  
+    Nome do concurso: {prompt}
     
-    Você recebeu o nome de um concurso, e o objetivo é buscar os editais mais semelhantes relacionados a ele. Realize uma busca na web para encontrar os 10 editais mais próximos do título: "{prompt}".
+    Você deve retornar APENAS O EDITAL MAIS RELEVANTE encontrado com base no nome do concurso fornecido.
     
-    Os editais devem ser ordenados por similaridade de título e trazer as informações mais relevantes, como:
-
-    - O título completo do edital + ' - '+ Ano do edital
-    - Uma breve descrição do edital
-    - As vagas oferecidas no edital (nome da vaga e descrição breve)
-
-    Apenas traga os 10 primeiros editais mais similares, ordenados da maior para a menor similaridade.
-
-    Caso não encontre resultados suficientes, retorne a mensagem "Nenhum edital encontrado".
+    Busque informações reais pesquisando na WEB, completas e bem estruturadas sobre esse edital, incluindo:
+    
+    - Título completo
+    - Ano do edital
+    - Descrição breve do edital
+    - Lista de vagas com (nome + breve descrição)
+    
+    Para garantir que você está trazendo um pdf real, solicitei no campo 'link' um link real do PDF pois vou verificar.
+    
+    IMPORTANTE:
+    ❌ Não gere 10 editais
+    ❌ Não preencha placeholders como "outros editais"
+    ❌ Não invente dados irreais sem contexto
+    ❌ Não deixe campos vazios
+    
+    ✔ Retorne apenas o MELHOR e mais representativo edital disponível.
     """
 
     instruction = f"""
@@ -110,6 +126,7 @@ def search_notice(prompt):
                 "Notice": "Texto completo do edital",
                 "NoticeTitle": "Título do edital",
                 "NoticeDescription": "Descrição breve do edital",
+                "Link": "Link na web do edital",
                 "JobRoles": [
                     {{
                         "Name": "Nome da vaga",
@@ -128,32 +145,78 @@ def search_notice(prompt):
 
 
 # === 3️⃣ Extrair roadmap de estudos ===
-def extract_roadmap(selected_job_role, notice_text):
+def extract_roadmap(selected_job_role, notice_text, auxiliar_prompt):
     prompt = f"""
-    Gere um roadmap completo de estudos para a vaga "{selected_job_role}" com base nos conteúdos vinculados a vaga, descritos no edital abaixo:
+    {auxiliar_prompt}.
+    
+    O roadmap deve sempre:
+    
+    - Ser dividido em MÓDULOS temáticos
+    - No mínimo 7 MÓDULOS COMPLETOS
+    - Cada módulo deve conter entre 4 e 7 LIÇÕES
+    - As lições devem ser objetivas, claras e progressivas
+    - A ordem importa (começo → intermediário → avançado)
+    - Deve cobrir TODO o conteúdo técnico listado no edital, sem inventar
+    - Não incluir nada que não apareça no edital
+    
+    Aqui está o edital para análise:
+    
     {notice_text}
     """
 
-    instruction = f"""
-    Retorne no formato JSON:
-    {{
-        "Title": "...",
-        "Description": "...",
-        "Modules": [
-            {{
-                "Title": "...",
-                "Description": "...",
-                "Order": 1,
-                "Lessons": [
-                    {{
-                        "Title": "...",
-                        "Description": "...",
-                        "Order": 1
-                    }}
-                ]
-            }}
-        ]
-    }}
+    instruction = """
+    Você deve retornar um JSON seguindo ESTRITAMENTE o schema fornecido.
+    
+    REGRAS IMPORTANTES:
+    
+    1. NÃO criar chaves vazias como "", " ", ".", ",", etc.
+    2. Mantém apenas os campos permitidos pelo schema:
+       - Title
+       - Description
+       - Modules
+       - Lessons
+       - Order
+    
+    3. Cada Módulo DEVE conter:
+       - Title
+       - Description
+       - Order
+       - Lessons (array)
+    
+    4. Cada Lesson DEVE conter:
+       - Title
+       - Description
+       - Order
+    
+    5. Estrutura mínima obrigatória:
+       - Entre 3 e 7 módulos
+       - Cada módulo com 3 a 7 lições
+       - Descrições devem ser detalhadas (mínimo 2 frases)
+    
+    6. Não inventar conteúdo fora do edital.
+    
+    7. O título dos módulos deve sempre refletir um tópico real do edital.
+    
+    Formato JSON de exemplo:
+    
+    {
+      "Title": "Roadmap de Estudos para [Vaga]",
+      "Description": "Descrição geral...",
+      "Modules": [
+        {
+          "Title": "Nome do módulo",
+          "Description": "Descrição detalhada...",
+          "Order": 1,
+          "Lessons": [
+            {
+              "Title": "Nome da lição",
+              "Description": "Descrição detalhada...",
+              "Order": 1
+            }
+          ]
+        }
+      ]
+    }
     """
 
     gpt_response = generate_completion(prompt, instruction, 'roadmap_data_schema')
@@ -194,6 +257,44 @@ def generate_questions(subject, quantity):
     return {"Questions": gpt_response}
 
 
+def extract_programmatic_contents(text):
+    patterns = [
+        r"CONTEÚDOS PROGRAMÁTICOS(.*)",
+        r"PROGRAMA DA PROVA(.*)",
+        r"CONHECIMENTOS ESPECÍFICOS(.*)",
+        r"CONHECIMENTOS BÁSICOS(.*)"
+    ]
+
+    for p in patterns:
+        m = re.search(p, text, re.IGNORECASE | re.DOTALL)
+        if m:
+            return m.group(1).strip()
+
+    return None
+
+
+def clean_pdf_text(text):
+    text = re.sub(r'\n\s*\n', '\n', text)
+    text = re.sub(r' {2,}', ' ', text)
+    text = re.sub(r'^\s+', '', text, flags=re.MULTILINE)
+    text = text.lstrip()
+    text = text.replace("\t", " ").replace("\r", " ")
+
+    return text.strip()
+
+
+def extract_text_from_pdf(pdf_path):
+    doc = fitz.open(pdf_path)
+    text = ""
+
+    for page_num in range(len(doc)):
+        page = doc.load_page(page_num)
+        text += page.get_text("text") + "\n"
+
+    doc.close()
+    return text
+
+
 def generate_test_response(prompt):
     gpt_response = generate_completion(prompt, '', '')
 
@@ -203,8 +304,8 @@ def generate_test_response(prompt):
         return "Erro ao gerar resposta. Verifique a saída do modelo."
 
 
-# === Utilitário para ler PDFs ===
-def extract_text_from_pdf(pdf_path):
+# === Utilitário para ler PDFs (Somente para testes locais, é responsabilidade do backend)===
+def extract_data_from_pdf(pdf_path):
     doc = fitz.open(pdf_path)
     text = ""
     for page_num in range(doc.page_count):
