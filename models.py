@@ -38,58 +38,36 @@ exam_data_schema = {
 roadmap_data_schema = {
     "type": "object",
     "properties": {
-        "Title": {
-            "type": "string",
-            "description": "Título do roadmap"
-        },
-        "Description": {
-            "type": "string",
-            "description": "Descrição do roadmap"
-        },
+        "Title": {"type": "string"},
+        "Description": {"type": "string"},
         "Modules": {
             "type": "array",
             "items": {
                 "type": "object",
                 "properties": {
-                    "Title": {
-                        "type": "string",
-                        "description": "Título do módulo"
-                    },
-                    "Description": {
-                        "type": "string",
-                        "description": "Descrição do módulo"
-                    },
-                    "Order": {
-                        "type": "integer",
-                        "description": "Ordem do módulo"
-                    },
+                    "Title": {"type": "string"},
+                    "Description": {"type": "string"},
+                    "Order": {"type": "integer"},
                     "Lessons": {
                         "type": "array",
                         "items": {
                             "type": "object",
                             "properties": {
-                                "Title": {
-                                    "type": "string",
-                                    "description": "Título da lição"
-                                },
-                                "Description": {
-                                    "type": "string",
-                                    "description": "Conteúdo da lição"
-                                },
-                                "Order": {
-                                    "type": "integer",
-                                    "description": "Ordem da lição"
-                                }
-                            }
+                                "Title": {"type": "string"},
+                                "Description": {"type": "string"},
+                                "Order": {"type": "integer"}
+                            },
+                            "required": ["Title", "Description", "Order"]
                         }
                     }
-                }
+                },
+                "required": ["Title", "Description", "Order", "Lessons"]
             }
         }
     },
-    "required": ["Title", "Description", "Modules"],
-    "additionalProperties": False
+    "required": ["Title", "Description", "Modules"]
 }
+
 
 questions_schema = {
     "type": "object",
