@@ -1,3 +1,6 @@
+import os
+import tempfile
+
 import openai
 from flask import Blueprint, request, jsonify
 from services import (
@@ -5,7 +8,7 @@ from services import (
     search_notice,
     extract_roadmap,
     generate_questions,
-    generate_test_response,
+    generate_test_response, extract_data_from_pdf, clean_pdf_text, extract_programmatic_contents,
 )
 
 api_routes = Blueprint('api', __name__)
@@ -16,11 +19,13 @@ api_routes = Blueprint('api', __name__)
 def extract_notice_data_route():
     content = request.get_json()
     notice = content.get('notice')
+    notice = clean_pdf_text(notice)
 
     if not notice:
         return jsonify({"error": "Campo 'notice' é obrigatório."}), 400
 
     result = extract_notice_data(notice)
+    result["ExamDataView"]["Notice"] = notice
     return jsonify(result), 200
 
 
@@ -43,11 +48,32 @@ def extract_roadmap_route():
     content = request.get_json()
     selected_job_role = content.get('selectedJobRole')
     notice = content.get('notice')
+    contents = extract_programmatic_contents(notice)
+
+    if contents:
+        roadmap_source = contents
+        auxiliar_prompt = f"""
+        Você deve gerar um ROADMAP COMPLETO, PROFUNDO e ESTRUTURADO DE ESTUDOS
+        para a vaga "{selected_job_role}", utilizando EXCLUSIVAMENTE os conteúdos
+        PROGRAMÁTICOS descritos na extração das informações técnicas da vaga descritos abaixo.
+        
+        {roadmap_source}
+        """
+    else:
+        roadmap_source = "IGNORE O EDITAL — ele não possui conteúdos de prova."
+        auxiliar_prompt = f"""
+        Você deve gerar um ROADMAP COMPLETO, PROFUNDO e ESTRUTURADO DE ESTUDOS
+        para a vaga "{selected_job_role}". Devido ao fato de o edital não possuir contaúdo programáticos dispostos para a vaga,
+        gere o roadmap
+        com base nas bancas mais comuns (Institutos Federais, concursos federais, nível superior TI).
+        
+        {roadmap_source}
+        """
 
     if not selected_job_role or not notice:
         return jsonify({"error": "Campos 'selectedJobRole' e 'notice' são obrigatórios."}), 400
 
-    result = extract_roadmap(selected_job_role, notice)
+    result = extract_roadmap(selected_job_role, notice, auxiliar_prompt)
     return jsonify(result), 200
 
 
@@ -89,3 +115,30 @@ def test_route():
         return jsonify({"result": result}), 200
     else:
         return jsonify({"error": "Tipo de resultado inválido"}), 400
+
+
+@api_routes.route('/upload_notice_pdf', methods=['POST'])
+def upload_notice_pdf():
+    if 'file' not in request.files:
+        return jsonify({"error": "Nenhum arquivo enviado. Use o campo 'file'"}), 400
+
+    pdf_file = request.files['file']
+
+    if pdf_file.filename == "":
+        return jsonify({"error": "Nome de arquivo inválido."}), 400
+
+    # Diretório temporário compatível com Windows, Linux e Heroku
+    temp_dir = tempfile.gettempdir()
+    temp_path = os.path.join(temp_dir, pdf_file.filename)
+
+    pdf_file.save(temp_path)
+
+    try:
+        raw_text = extract_data_from_pdf(temp_path)
+        text = clean_pdf_text(raw_text)
+        return jsonify({
+            "message": "PDF processado com sucesso",
+            "text": text
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
